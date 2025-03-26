@@ -296,11 +296,12 @@ class PatientMonitor(QMainWindow):
         # Analyze the full signal for arrhythmias
         flutter_detected = self.detector.detect_flutter(self.x, self.full_signal)
         vtach_detected = self.detector.detect_ventricular_tachycardia(self.full_signal)
+        couplets_detected = self.detector.detect_couplets(self.x, self.full_signal)
 
         # Update alarm states based on detection results
-        self.alarms['Tachycardia'] = vtach_detected  # Assuming Tachycardia refers to ventricular tachycardia
-        self.alarms['Flutter'] = flutter_detected  # No detection logic for Bradycardia yet
-        self.alarms['Couplets'] =  False # Assuming Arrhythmia refers to flutter
+        self.alarms['Tachycardia'] = vtach_detected  # Ventricular tachycardia
+        self.alarms['Flutter'] = flutter_detected    # Atrial flutter
+        self.alarms['Couplets'] = couplets_detected  # Couplets
 
         # Update alarm labels with blinking effect
         for alarm, label in self.alarm_labels.items():
