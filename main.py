@@ -10,6 +10,7 @@ from PyQt5.QtGui import QFont, QPalette, QColor, QIcon
 import smtplib
 from email.mime.text import MIMEText
 import pandas as pd
+from  Arrythmia_Detector import ArrythmiaDetector
 
 class PatientMonitor(QMainWindow):
     def __init__(self):
@@ -70,7 +71,7 @@ class PatientMonitor(QMainWindow):
             self.right_layout.addWidget(group)
 
         # Alarms section
-        self.alarms = {'Tachycardia': False, 'Bradycardia': False, 'Arrhythmia': False}
+        self.alarms = {'Tachycardia': False, 'Flutter': False, 'Couplets': False}
         self.alarm_labels = {}
         alarms_group = QGroupBox("Alarms")
         self.alarm_layout = QHBoxLayout()
@@ -163,9 +164,14 @@ class PatientMonitor(QMainWindow):
 
         # Start timers
         self.ecg_timer.start(int(self.base_update_interval * self.speed_factor))
-        self.alarm_timer.start(500)
         self.vitals_timer.start(5000)
 
+        # Initialize the arrythmia detector class
+        self.detector = ArrythmiaDetector()
+
+        # Adjust alarm timer to 1 second (1000 ms)
+        self.alarm_timer.start(1000)  # Start with 1-second interval
+        
         # Initial updates
         self.update_vitals()
 
@@ -196,7 +202,6 @@ class PatientMonitor(QMainWindow):
                 self.current_index = 0
                 self.x_display = []
                 self.display_signal = []
-
             except Exception as e:
                 print(f"Error loading signal: {e}")
 
@@ -254,6 +259,7 @@ class PatientMonitor(QMainWindow):
 
         # Update the plot
         self.ecg_plot.setData(self.x_display, self.display_signal)
+        self.ecg_widget.autoRange()
 
         # Increment index
         self.current_index = (self.current_index + 1) % len(self.full_signal)
@@ -280,8 +286,23 @@ class PatientMonitor(QMainWindow):
 
     def update_alarms(self):
         self.blink_state = 1 - self.blink_state
-        for alarm in self.alarms:
-            self.alarms[alarm] = random.choice([True, False])
+        
+        # Only proceed if we have ECG data
+        if not self.full_signal or not self.x:
+            for alarm, label in self.alarm_labels.items():
+                label.setStyleSheet("background-color: green; color: white; border-radius: 5px; padding: 5px;")
+            return
+
+        # Analyze the full signal for arrhythmias
+        flutter_detected = self.detector.detect_flutter(self.x, self.full_signal)
+        vtach_detected = self.detector.detect_ventricular_tachycardia(self.full_signal)
+
+        # Update alarm states based on detection results
+        self.alarms['Tachycardia'] = vtach_detected  # Assuming Tachycardia refers to ventricular tachycardia
+        self.alarms['Flutter'] = flutter_detected  # No detection logic for Bradycardia yet
+        self.alarms['Couplets'] =  False # Assuming Arrhythmia refers to flutter
+
+        # Update alarm labels with blinking effect
         for alarm, label in self.alarm_labels.items():
             if self.alarms[alarm]:
                 color = 'red' if self.blink_state == 0 else 'yellow'
