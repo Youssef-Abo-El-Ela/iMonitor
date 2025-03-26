@@ -7,6 +7,8 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QH
                             QLabel, QGroupBox, QPushButton, QFileDialog)
 from PyQt5.QtCore import QTimer, Qt, QSize  # Added QSize for icon size
 from PyQt5.QtGui import QFont, QPalette, QColor, QIcon
+import smtplib
+from email.mime.text import MIMEText
 
 class PatientMonitor(QMainWindow):
     def __init__(self):
@@ -250,6 +252,38 @@ class PatientMonitor(QMainWindow):
                 label.setStyleSheet(f"background-color: {color}; color: {text_color}; font-weight: bold; border-radius: 5px; padding: 5px;")
             else:
                 label.setStyleSheet("background-color: green; color: white; border-radius: 5px; padding: 5px;")
+    
+
+    def send_email(message_string, recipient_email):
+        """
+        Sends an email with consisting of the passed string message 
+        
+        inputs are:
+            message_string (string): the message to be sent in the email
+            recipient_email (string): the recipient's email address
+        """
+        # Email configuration
+        sender_email = "emergencypatientmonitor@gmail.com"
+        sender_app_password = "wgtu wgui rjzx ytbw"  # App password provided
+        
+        # Create MIMEText object
+        msg = MIMEText(message_string)
+        msg['Subject'] = 'Message from Emergency Patient Monitor'
+        msg['From'] = sender_email
+        msg['To'] = recipient_email
+        
+        try:
+            # Connect to Gmail's SMTP server with SSL
+            print("Connecting to smtp.gmail.com:465...")
+            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+                print("Logging in...")
+                server.login(sender_email, sender_app_password)
+                print("Sending email...")
+                server.send_message(msg)
+            print("Email sent successfully!")
+            
+        except Exception as e:
+            print(f"Failed to send email: {str(e)}")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
