@@ -261,8 +261,10 @@ class PatientMonitor(QMainWindow):
         self.ecg_plot.setData(self.x_display, self.display_signal)
         self.ecg_widget.autoRange()
 
-        # Increment index
-        self.current_index = (self.current_index + 1) % len(self.full_signal)
+        # Increment index and check if the signal has ended
+        self.current_index += 1
+        if self.current_index >= len(self.full_signal):
+            self.reset_signal()  # Call reset_signal when the signal ends
 
     def update_vitals(self):
         bp_sys = random.randint(80, 140)
@@ -302,7 +304,7 @@ class PatientMonitor(QMainWindow):
         self.alarms['Tachycardia'] = vtach_detected  # Ventricular tachycardia
         self.alarms['Flutter'] = flutter_detected    # Atrial flutter
         self.alarms['Couplets'] = couplets_detected  # Couplets
-
+        
         # Update alarm labels with blinking effect
         for alarm, label in self.alarm_labels.items():
             if self.alarms[alarm]:

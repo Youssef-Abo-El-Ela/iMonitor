@@ -23,35 +23,27 @@ class ArrythmiaDetector:
         p_wave_peaks, _ = find_peaks(amplitude, height=(0.1, 0.25))
         return len(p_wave_peaks) == 0  # Return True if no P-waves (indicating atrial fibrillation)
     
-    def detect_couplets(self, time, amplitude, peak_threshold=0.7, window_size=5, rr_threshold=0.8):       
+    def detect_couplets(self, time, amplitude, peak_threshold=0.7, window_size=5, rr_threshold=0.8):
         try:
-            # Normalize amplitude
+            time = np.array(time)
+            amplitude = np.array(amplitude)
             norm_amplitude = (amplitude - np.min(amplitude)) / (np.max(amplitude) - np.min(amplitude))
-            
-            # Detect peaks
             peaks = []
             for i in range(window_size, len(norm_amplitude) - window_size):
                 window = norm_amplitude[i - window_size:i + window_size + 1]
                 if norm_amplitude[i] == max(window) and norm_amplitude[i] > peak_threshold:
                     peaks.append(i)
             peaks = np.array(peaks)
-            
-            # Calculate R-R intervals
             rr_intervals = np.diff(time[peaks])
-            
-            # Check for couplets (two short intervals followed by a longer one)
             couplet_count = 0
             i = 0
             while i < len(rr_intervals) - 2:
-                if (rr_intervals[i] < rr_threshold and 
-                    rr_intervals[i + 1] < rr_threshold and 
-                    rr_intervals[i + 2] >= rr_threshold):
+                if rr_intervals[i] < rr_threshold and rr_intervals[i+1] < rr_threshold and rr_intervals[i+2] >= rr_threshold:
                     couplet_count += 1
-                    i += 3
+                    i += 3 
                 else:
                     i += 1
-            
-            return couplet_count > 0  # Return True if at least one couplet is detected
-        
-        except Exception as e:
-            return False  # Return False if an error occurs
+            return couplet_count > 0
+        except:
+            return False
+
