@@ -5,10 +5,11 @@ import csv
 import pyqtgraph as pg
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                             QLabel, QGroupBox, QPushButton, QFileDialog)
-from PyQt5.QtCore import QTimer, Qt, QSize  # Added QSize for icon size
+from PyQt5.QtCore import QTimer, Qt, QSize
 from PyQt5.QtGui import QFont, QPalette, QColor, QIcon
 import smtplib
 from email.mime.text import MIMEText
+import pandas as pd
 
 class PatientMonitor(QMainWindow):
     def __init__(self):
@@ -40,7 +41,7 @@ class PatientMonitor(QMainWindow):
         self.ecg_widget.setMinimumSize(800, 400)
         self.ecg_widget.setBackground('k')
         self.ecg_plot = self.ecg_widget.plot(pen='g')
-        self.ecg_widget.setXRange(0, 10)
+        self.ecg_widget.setXRange(0, 10)  # Initial range, will adjust dynamically
         self.ecg_widget.setYRange(-2, 2)
         self.ecg_widget.setLabel('bottom', 'Time', 's')
         self.ecg_widget.setLabel('left', 'ECG', 'mV')
@@ -88,9 +89,9 @@ class PatientMonitor(QMainWindow):
 
         # Browse signal button
         self.browse_btn = QPushButton("Browse Signal")
-        self.browse_btn.setStyleSheet("background-color: #3c3c3c; color: white; padding: 8px; font-size: 20px;")  # Increased font size to 20px
+        self.browse_btn.setStyleSheet("background-color: #3c3c3c; color: white; padding: 8px; font-size: 20px;")
         self.browse_btn.setIcon(QIcon("icons/browse_icon.png"))
-        self.browse_btn.setIconSize(QSize(32, 32))  # Increased icon size
+        self.browse_btn.setIconSize(QSize(32, 32))
         self.browse_btn.setToolTip("Browse Signal")
         self.browse_btn.clicked.connect(self.browse_signal)
         self.right_layout.addWidget(self.browse_btn)
@@ -100,31 +101,29 @@ class PatientMonitor(QMainWindow):
         control_layout = QHBoxLayout()
         control_layout.setSpacing(15)
 
-        # Define buttons with text and larger icons
         self.increase_speed_btn = QPushButton("Speed Up")
         self.increase_speed_btn.setIcon(QIcon("icons/increase_speed_icon.png"))
-        self.increase_speed_btn.setIconSize(QSize(32, 32))  # Increased icon size
+        self.increase_speed_btn.setIconSize(QSize(32, 32))
         self.increase_speed_btn.setToolTip("Increase Speed")
 
         self.decrease_speed_btn = QPushButton("Slow Down")
         self.decrease_speed_btn.setIcon(QIcon("icons/decrease_speed_icon.png"))
-        self.decrease_speed_btn.setIconSize(QSize(32, 32))  # Increased icon size
+        self.decrease_speed_btn.setIconSize(QSize(32, 32))
         self.decrease_speed_btn.setToolTip("Decrease Speed")
 
         self.pause_play_btn = QPushButton("Pause")
-        self.pause_play_btn.setIcon(QIcon("icons/pause_icon.png"))  # Initial icon (signal is playing)
-        self.pause_play_btn.setIconSize(QSize(32, 32))  # Increased icon size
+        self.pause_play_btn.setIcon(QIcon("icons/pause_icon.png"))
+        self.pause_play_btn.setIconSize(QSize(32, 32))
         self.pause_play_btn.setToolTip("Pause")
 
         self.reset_btn = QPushButton("Reset")
         self.reset_btn.setIcon(QIcon("icons/reset_icon.png"))
-        self.reset_btn.setIconSize(QSize(32, 32))  # Increased icon size
+        self.reset_btn.setIconSize(QSize(32, 32))
         self.reset_btn.setToolTip("Reset")
 
-        # Style and add buttons to layout
         for btn in [self.increase_speed_btn, self.decrease_speed_btn, self.pause_play_btn, self.reset_btn]:
             btn.setStyleSheet("background-color: #3c3c3c; color: white; padding: 8px; font-size: 16px;")
-            btn.setFixedHeight(50)  # Optional: Increased button height
+            btn.setFixedHeight(50)
             control_layout.addWidget(btn)
 
         control_group.setLayout(control_layout)
@@ -132,17 +131,18 @@ class PatientMonitor(QMainWindow):
         self.right_layout.addWidget(control_group)
         self.right_layout.addStretch()
 
-        # Signal data
-        self.full_signal = [math.sin(2 * math.pi * i * 0.01) for i in range(10000)]
-        self.current_index = 0
-        self.display_signal = self.full_signal[:1000]
-        self.x = [i * 0.01 for i in range(1000)]
-        self.ecg_plot.setData(self.x, self.display_signal)
-
         # Signal control variables
         self.base_update_interval = 50
         self.speed_factor = 1.0
         self.is_playing = True
+        self.max_window_size = 1000  # Maximum number of points to display
+
+        # Signal data
+        self.x = []  # Full time data
+        self.full_signal = []  # Full ECG signal
+        self.x_display = []  # Rolling time window (starts empty)
+        self.display_signal = []  # Rolling signal window (starts empty)
+        self.current_index = 0
 
         # Connect buttons
         self.increase_speed_btn.clicked.connect(self.increase_speed)
@@ -153,16 +153,18 @@ class PatientMonitor(QMainWindow):
         # Timers
         self.ecg_timer = QTimer()
         self.ecg_timer.timeout.connect(self.update_ecg)
-        self.ecg_timer.start(int(self.base_update_interval * self.speed_factor))
 
         self.vitals_timer = QTimer()
         self.vitals_timer.timeout.connect(self.update_vitals)
-        self.vitals_timer.start(5000)
 
         self.blink_state = 0
         self.alarm_timer = QTimer()
         self.alarm_timer.timeout.connect(self.update_alarms)
+
+        # Start timers
+        self.ecg_timer.start(int(self.base_update_interval * self.speed_factor))
         self.alarm_timer.start(500)
+        self.vitals_timer.start(5000)
 
         # Initial updates
         self.update_vitals()
@@ -171,13 +173,30 @@ class PatientMonitor(QMainWindow):
         file_name, _ = QFileDialog.getOpenFileName(self, "Select ECG Signal File", "", "CSV Files (*.csv)")
         if file_name:
             try:
-                with open(file_name, 'r') as f:
-                    reader = csv.reader(f)
-                    new_signal = [float(row[0]) for row in reader if row]
-                self.full_signal = new_signal if len(new_signal) >= 1000 else new_signal + [0] * (1000 - len(new_signal))
+                df = pd.read_csv(file_name, header=None)
+                self.x = df.iloc[:, 0].dropna().astype(float).tolist()
+                self.full_signal = df.iloc[:, 1].dropna().astype(float).tolist()
+
+                # Reset display data
                 self.current_index = 0
-                self.display_signal = self.full_signal[:1000]
-                self.ecg_plot.setData(self.x, self.display_signal)
+                self.x_display = []
+                self.display_signal = []
+
+            except Exception as e:
+                print(f"Error loading signal: {e}")
+
+    def set_initial_signal(self, file_name):
+        if file_name:
+            try:
+                df = pd.read_csv(file_name, header=None)
+                self.x = df.iloc[:, 0].dropna().astype(float).tolist()
+                self.full_signal = df.iloc[:, 1].dropna().astype(float).tolist()
+
+                # Reset display data
+                self.current_index = 0
+                self.x_display = []
+                self.display_signal = []
+
             except Exception as e:
                 print(f"Error loading signal: {e}")
 
@@ -210,16 +229,34 @@ class PatientMonitor(QMainWindow):
 
     def reset_signal(self):
         self.current_index = 0
-        self.display_signal = self.full_signal[:1000]
-        self.ecg_plot.setData(self.x, self.display_signal)
+        self.x_display = []
+        self.display_signal = []
+        self.ecg_plot.setData(self.x_display, self.display_signal)
 
     def update_ecg(self):
-        if not self.is_playing:
+        if not self.is_playing or not self.full_signal:
             return
-        self.display_signal.pop(0)
+
+        # Add the next point to the display
+        self.x_display.append(self.x[self.current_index])
         self.display_signal.append(self.full_signal[self.current_index])
+
+        # If the window exceeds max_window_size, start shifting
+        if len(self.x_display) > self.max_window_size:
+            self.x_display.pop(0)
+            self.display_signal.pop(0)
+
+        # Update the x-axis range dynamically
+        if self.x_display:
+            min_x = min(self.x_display)
+            max_x = max(self.x_display)
+            self.ecg_widget.setXRange(min_x, max_x)
+
+        # Update the plot
+        self.ecg_plot.setData(self.x_display, self.display_signal)
+
+        # Increment index
         self.current_index = (self.current_index + 1) % len(self.full_signal)
-        self.ecg_plot.setData(self.x, self.display_signal)
 
     def update_vitals(self):
         bp_sys = random.randint(80, 140)
@@ -252,28 +289,20 @@ class PatientMonitor(QMainWindow):
                 label.setStyleSheet(f"background-color: {color}; color: {text_color}; font-weight: bold; border-radius: 5px; padding: 5px;")
             else:
                 label.setStyleSheet("background-color: green; color: white; border-radius: 5px; padding: 5px;")
-    
 
     def send_email(message_string, recipient_email):
         """
         Sends an email with consisting of the passed string message 
-        
-        inputs are:
-            message_string (string): the message to be sent in the email
-            recipient_email (string): the recipient's email address
         """
-        # Email configuration
         sender_email = "emergencypatientmonitor@gmail.com"
-        sender_app_password = "wgtu wgui rjzx ytbw"  # App password provided
+        sender_app_password = "wgtu wgui rjzx ytbw"
         
-        # Create MIMEText object
         msg = MIMEText(message_string)
         msg['Subject'] = 'Message from Emergency Patient Monitor'
         msg['From'] = sender_email
         msg['To'] = recipient_email
         
         try:
-            # Connect to Gmail's SMTP server with SSL
             print("Connecting to smtp.gmail.com:465...")
             with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
                 print("Logging in...")
@@ -281,7 +310,6 @@ class PatientMonitor(QMainWindow):
                 print("Sending email...")
                 server.send_message(msg)
             print("Email sent successfully!")
-            
         except Exception as e:
             print(f"Failed to send email: {str(e)}")
 
@@ -298,5 +326,6 @@ if __name__ == "__main__":
     app.setPalette(dark_palette)
     
     monitor = PatientMonitor()
+    monitor.set_initial_signal("Data/Ventricular_Flutter_no_header.csv")
     monitor.showMaximized()
     sys.exit(app.exec_())
