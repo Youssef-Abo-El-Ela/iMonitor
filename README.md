@@ -25,8 +25,6 @@ The **Patient Monitor GUI** is a software application designed to display and mo
 - **Signal Processing Libraries**: [SciPy, NumPy]  
 - **Email Notification System**: [SMTP]  
 
-Here’s the updated **"How It Works"** section with the control buttons included:  
-
 ---
 
 ## **How It Works**  
