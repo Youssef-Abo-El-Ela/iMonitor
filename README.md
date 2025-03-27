@@ -43,6 +43,41 @@
 ![Image Description 1](assets/GUI.png)
 ![Image Description 2](assets/GUI2.png)
 
+## **Installation**
+
+To set up the environment and install the required dependencies, follow these steps:
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/Youssef-Abo-El-Ela/iMonitor.git
+   cd iMonitor
+   ```
+
+2. **Create a virtual environment**:
+   ```bash
+   python -m venv venv
+   ```
+
+3. **Activate the virtual environment**:
+   - On Windows:
+     ```bash
+     venv\Scripts\activate
+     ```
+   - On macOS and Linux:
+     ```bash
+     source venv/bin/activate
+     ```
+
+4. **Install the dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+5. **Run the application**:
+   ```bash
+   python main.py
+   ```
+
 ## Contributors <a name = "Contributors"></a>
 <table>
   <tr>
