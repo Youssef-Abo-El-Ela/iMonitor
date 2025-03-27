@@ -38,5 +38,42 @@
    - **Increase Speed**: Speed up the signal playback.  
    - **Decrease Speed**: Slow down the signal playback.  
    - **Reset**: Restore signal playback to its default state.  
-
 ---
+## **Preview**
+![Image Description 1](assets/GUI.png)
+![Image Description 2](assets/GUI2.png)
+
+## Contributors <a name = "Contributors"></a>
+<table>
+  <tr>
+    <td align="center">
+    <a href="https://github.com/Youssef-Abo-El-Ela" target="_black">
+    <img src="https://avatars.githubusercontent.com/u/125592387?v=4" width="150px;" alt="Youssef Aboelela"/>
+    <br />
+    <sub><b>Youssef Aboelela</b></sub></a>
+    </td>
+    <td align="center">
+    <a href="https://github.com/Anasmo1323" target="_black">
+    <img src="https://avatars.githubusercontent.com/u/116515989?v=4" width="150px;" alt="Anas Mohamed"/>
+    <br />
+    <sub><b>Anas Mohamed</b></sub></a>
+    </td>
+    <td align="center">
+    <a href="https://github.com/aliyounis33" target="_black">
+    <img src="https://avatars.githubusercontent.com/u/125222093?v=4" width="150px;" alt="Ali Younis"/>
+    <br />
+    <sub><b>Ali Younis</b></sub></a>
+    </td>
+    <td align="center">
+    <a href="https://github.com/louai111" target="_black">
+    <img src="https://avatars.githubusercontent.com/u/79408256?v=4" width="150px;" alt="Louai Khaled"/>
+    <br />
+    <sub><b>Louai Khaled</b></sub></a>
+    </td>
+    <td align="center">
+    <a href="https://github.com/omarkhaled235" target="_black">
+    <img src="https://avatars.githubusercontent.com/u/127043879?v=4" width="150px;" alt="Omar Khaled"/>
+    <br />
+    <sub><b>Omar Khaled</b></sub></a>
+    </td>
+      </tr>
