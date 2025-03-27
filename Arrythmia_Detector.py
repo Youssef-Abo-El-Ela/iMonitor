@@ -19,7 +19,7 @@ class ArrythmiaDetector:
 
         return bool(detected_peaks)  # Return True if flutter is detected
 
-    def detect_ventricular_tachycardia(self, amplitude):
+    def detect_atrial_fibrillation(self, amplitude):
         p_wave_peaks, _ = find_peaks(amplitude, height=(0.1, 0.25))
         return len(p_wave_peaks) == 0  # Return True if no P-waves (indicating atrial fibrillation)
     

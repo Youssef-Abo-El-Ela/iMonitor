@@ -5,12 +5,40 @@ import csv
 import pyqtgraph as pg
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                             QLabel, QGroupBox, QPushButton, QFileDialog)
-from PyQt5.QtCore import QTimer, Qt, QSize
+from PyQt5.QtCore import QTimer, Qt, QSize, QThread, pyqtSignal
 from PyQt5.QtGui import QFont, QPalette, QColor, QIcon
 import smtplib
 from email.mime.text import MIMEText
 import pandas as pd
-from  Arrythmia_Detector import ArrythmiaDetector
+from Arrythmia_Detector import ArrythmiaDetector
+
+# Worker class for sending email in a separate thread
+class EmailWorker(QThread):
+    finished = pyqtSignal()  # Signal to indicate email sending is complete
+
+    def __init__(self, message_string, recipient_email):
+        super().__init__()
+        self.message_string = message_string
+        self.recipient_email = recipient_email
+
+    def run(self):
+        sender_email = "emergencypatientmonitor@gmail.com"
+        sender_app_password = "wgtu wgui rjzx ytbw"
+        
+        msg = MIMEText(self.message_string)
+        msg['Subject'] = 'Message from Emergency Patient Monitor'
+        msg['From'] = sender_email
+        msg['To'] = self.recipient_email
+        
+        try:
+            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+                server.login(sender_email, sender_app_password)
+                server.send_message(msg)
+            print("Email sent successfully!")
+        except Exception as e:
+            print(f"Failed to send email: {str(e)}")
+        
+        self.finished.emit()  # Emit signal when done
 
 class PatientMonitor(QMainWindow):
     def __init__(self):
@@ -42,7 +70,7 @@ class PatientMonitor(QMainWindow):
         self.ecg_widget.setMinimumSize(800, 400)
         self.ecg_widget.setBackground('k')
         self.ecg_plot = self.ecg_widget.plot(pen='g')
-        self.ecg_widget.setXRange(0, 10)  # Initial range, will adjust dynamically
+        self.ecg_widget.setXRange(0, 10)
         self.ecg_widget.setYRange(-2, 2)
         self.ecg_widget.setLabel('bottom', 'Time', 's')
         self.ecg_widget.setLabel('left', 'ECG', 'mV')
@@ -71,7 +99,7 @@ class PatientMonitor(QMainWindow):
             self.right_layout.addWidget(group)
 
         # Alarms section
-        self.alarms = {'Tachycardia': False, 'Flutter': False, 'Couplets': False}
+        self.alarms = {'Atrial': False, 'Flutter': False, 'Couplets': False}
         self.alarm_labels = {}
         alarms_group = QGroupBox("Alarms")
         self.alarm_layout = QHBoxLayout()
@@ -136,13 +164,13 @@ class PatientMonitor(QMainWindow):
         self.base_update_interval = 50
         self.speed_factor = 1.0
         self.is_playing = True
-        self.max_window_size = 1000  # Maximum number of points to display
+        self.max_window_size = 1000
 
         # Signal data
-        self.x = []  # Full time data
-        self.full_signal = []  # Full ECG signal
-        self.x_display = []  # Rolling time window (starts empty)
-        self.display_signal = []  # Rolling signal window (starts empty)
+        self.x = []
+        self.full_signal = []
+        self.x_display = []
+        self.display_signal = []
         self.current_index = 0
 
         # Connect buttons
@@ -169,10 +197,8 @@ class PatientMonitor(QMainWindow):
         # Initialize the arrythmia detector class
         self.detector = ArrythmiaDetector()
 
-        # Adjust alarm timer to 1 second (1000 ms)
-        self.alarm_timer.start(1000)  # Start with 1-second interval
-        
-        # Initial updates
+        self.alarm_timer.start(1000)
+        self.flag = True
         self.update_vitals()
 
     def browse_signal(self):
@@ -182,12 +208,9 @@ class PatientMonitor(QMainWindow):
                 df = pd.read_csv(file_name, header=None)
                 self.x = df.iloc[:, 0].dropna().astype(float).tolist()
                 self.full_signal = df.iloc[:, 1].dropna().astype(float).tolist()
-
-                # Reset display data
                 self.current_index = 0
                 self.x_display = []
                 self.display_signal = []
-
             except Exception as e:
                 print(f"Error loading signal: {e}")
 
@@ -197,8 +220,6 @@ class PatientMonitor(QMainWindow):
                 df = pd.read_csv(file_name, header=None)
                 self.x = df.iloc[:, 0].dropna().astype(float).tolist()
                 self.full_signal = df.iloc[:, 1].dropna().astype(float).tolist()
-
-                # Reset display data
                 self.current_index = 0
                 self.x_display = []
                 self.display_signal = []
@@ -241,30 +262,20 @@ class PatientMonitor(QMainWindow):
     def update_ecg(self):
         if not self.is_playing or not self.full_signal:
             return
-
-        # Add the next point to the display
         self.x_display.append(self.x[self.current_index])
         self.display_signal.append(self.full_signal[self.current_index])
-
-        # If the window exceeds max_window_size, start shifting
         if len(self.x_display) > self.max_window_size:
             self.x_display.pop(0)
             self.display_signal.pop(0)
-
-        # Update the x-axis range dynamically
         if self.x_display:
             min_x = min(self.x_display)
             max_x = max(self.x_display)
             self.ecg_widget.setXRange(min_x, max_x)
-
-        # Update the plot
         self.ecg_plot.setData(self.x_display, self.display_signal)
         self.ecg_widget.autoRange()
-
-        # Increment index and check if the signal has ended
         self.current_index += 1
         if self.current_index >= len(self.full_signal):
-            self.reset_signal()  # Call reset_signal when the signal ends
+            self.reset_signal()
 
     def update_vitals(self):
         bp_sys = random.randint(80, 140)
@@ -288,24 +299,26 @@ class PatientMonitor(QMainWindow):
 
     def update_alarms(self):
         self.blink_state = 1 - self.blink_state
-        
-        # Only proceed if we have ECG data
-        if not self.full_signal or not self.x:
+        if not self.full_signal or not self.x or self.current_index <= 10:
             for alarm, label in self.alarm_labels.items():
                 label.setStyleSheet("background-color: green; color: white; border-radius: 5px; padding: 5px;")
             return
 
-        # Analyze the full signal for arrhythmias
-        flutter_detected = self.detector.detect_flutter(self.x, self.full_signal)
-        vtach_detected = self.detector.detect_ventricular_tachycardia(self.full_signal)
-        couplets_detected = self.detector.detect_couplets(self.x, self.full_signal)
-
-        # Update alarm states based on detection results
-        self.alarms['Tachycardia'] = vtach_detected  # Ventricular tachycardia
-        self.alarms['Flutter'] = flutter_detected    # Atrial flutter
-        self.alarms['Couplets'] = couplets_detected  # Couplets
+        current_x = self.x[:self.current_index]
+        current_signal = self.full_signal[:self.current_index]
         
-        # Update alarm labels with blinking effect
+        flutter_detected = self.detector.detect_flutter(current_x, current_signal)
+        vtach_detected = self.detector.detect_atrial_fibrillation(current_signal)
+        couplets_detected = self.detector.detect_couplets(current_x, current_signal)
+
+        self.alarms['Atrial'] = vtach_detected
+        self.alarms['Flutter'] = flutter_detected
+        self.alarms['Couplets'] = couplets_detected
+
+        if self.flag and (vtach_detected or flutter_detected or couplets_detected):
+            self.send_email("ALERT !!! Check Patient 1, Arrythmia Detected!!!", "amira.omar@eng.cu.edu.eg")
+            self.flag = False  # Prevent multiple emails
+
         for alarm, label in self.alarm_labels.items():
             if self.alarms[alarm]:
                 color = 'red' if self.blink_state == 0 else 'yellow'
@@ -314,32 +327,18 @@ class PatientMonitor(QMainWindow):
             else:
                 label.setStyleSheet("background-color: green; color: white; border-radius: 5px; padding: 5px;")
 
-    def send_email(message_string, recipient_email):
-        """
-        Sends an email with consisting of the passed string message 
-        """
-        sender_email = "emergencypatientmonitor@gmail.com"
-        sender_app_password = "wgtu wgui rjzx ytbw"
-        
-        msg = MIMEText(message_string)
-        msg['Subject'] = 'Message from Emergency Patient Monitor'
-        msg['From'] = sender_email
-        msg['To'] = recipient_email
-        
-        try:
-            print("Connecting to smtp.gmail.com:465...")
-            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
-                print("Logging in...")
-                server.login(sender_email, sender_app_password)
-                print("Sending email...")
-                server.send_message(msg)
-            print("Email sent successfully!")
-        except Exception as e:
-            print(f"Failed to send email: {str(e)}")
+    def send_email(self, message_string, recipient_email):
+        """Start a new thread to send the email."""
+        self.email_worker = EmailWorker(message_string, recipient_email)
+        self.email_worker.finished.connect(self.on_email_finished) 
+        self.email_worker.start()
+
+    def on_email_finished(self):
+        """Optional: Handle email sending completion."""
+        print("Email sending thread finished.")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    # Apply dark theme
     dark_palette = QPalette()
     dark_palette.setColor(QPalette.Window, QColor(43, 43, 43))
     dark_palette.setColor(QPalette.WindowText, Qt.white)
@@ -350,6 +349,6 @@ if __name__ == "__main__":
     app.setPalette(dark_palette)
     
     monitor = PatientMonitor()
-    monitor.set_initial_signal("Data/Ventricular_Flutter_no_header.csv")
+    monitor.set_initial_signal("Data/Ventricular couplets.csv")
     monitor.showMaximized()
     sys.exit(app.exec_())
