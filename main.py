@@ -316,7 +316,7 @@ class PatientMonitor(QMainWindow):
         self.alarms['Couplets'] = couplets_detected
 
         if self.flag and (vtach_detected or flutter_detected or couplets_detected):
-            self.send_email("ALERT !!! Check Patient 1, Arrythmia Detected!!!", "amira.omar@eng.cu.edu.eg")
+            self.send_email("ALERT !!! Check Patient 1, Arrythmia Detected!!!", "youssefmm2003@gmail.com")
             self.flag = False  # Prevent multiple emails
 
         for alarm, label in self.alarm_labels.items():
