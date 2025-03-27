@@ -1,7 +1,7 @@
 # iMonitor
 
 ## **Overview**  
-The **Patient Monitor GUI** is a software application designed to display and monitor essential vital signs in real time. It provides healthcare professionals with critical insights by continuously tracking patient data and detecting life-threatening arrhythmias. The system includes visual alarms and automated email notifications to alert medical staff, ensuring timely intervention and improving patient outcomes.  
+**iMonitor** is a **patient monitoring GUI** designed to display and monitor essential vital signs in real time. It provides healthcare professionals with critical insights by continuously tracking patient data and detecting life-threatening arrhythmias. The system includes visual alarms and automated email notifications to alert medical staff, ensuring timely intervention and improving patient outcomes.  
 
 ## **Features**  
 ✔️ **Real-time Monitoring**: Continuously displays vital signs, including:  
